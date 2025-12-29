@@ -1,6 +1,16 @@
-venv/
+.venv/
 __pycache__/
 instance/
 .pytest_cache/
 .env
 *.db
+
+dataset/
+test_dataset/
+
+*.h5
+*.keras
+*.pth
+models/
+
+.ipynb_checkpoints
