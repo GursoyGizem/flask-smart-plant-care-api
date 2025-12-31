@@ -11,6 +11,7 @@ test_dataset/
 *.h5
 *.keras
 *.pth
+*.pkl
 models/
 
 .ipynb_checkpoints
