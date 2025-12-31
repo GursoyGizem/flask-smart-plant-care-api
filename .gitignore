@@ -10,8 +10,6 @@ test_dataset/
 tabular_data/
 
 *.h5
-*.keras
-*.pth
 *.pkl
 models/
 
