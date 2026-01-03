@@ -355,10 +355,32 @@ class PlantGrowthHistory(Resource):
         plant = Plant.query.get_or_404(plant_id)
         return plant.growth_logs
 
+# 4. Resource: Plant Disease Check
+"""
+the plant's disease is detected
+"""
+
+#swagger
+disease_type_model = api.model('DiseaseType',{
+    'id': fields.Integer,
+    'name': fields.String
+})
+
+disease_check_model = api.model('DiseaseCheck',{
+    'id': fields.Integer(readonly=True),
+    'plant_id': fields.Integer,
+    'image_path': fields.String,
+    'confidence': fields.Float,
+    'created_at': fields.DateTime,
+    'disease_type_id': fields.Integer,
+    'disease_name': fields.String(attribute='disease_info.name')
+})
+
 @api.route('/check-disease')
-class DiseaseCheckResource(Resource):
+class DiseaseCheckCreate(Resource):
     @api.expect(upload_parser)
-    @api.marshal_with(disease_result_model)
+    @api.marshal_with(disease_check_model)
+    # post: performs an AI prediction, and saves the result to a database
     def post(self):
         if not disease_model: api.abort(503, 'Model not loaded')
         
@@ -391,11 +413,72 @@ class DiseaseCheckResource(Resource):
                 db.session.commit()
                 disease_type = unknown
             
-        check = DiseaseCheck(plant_id=plant_id, image_path=path, disease_type_id=disease_type.id, confidence=confidence)
+        check = DiseaseCheck(
+            plant_id=plant_id, 
+            image_path=path, 
+            disease_type_id=disease_type.id, 
+            confidence=confidence
+            )
+        
         db.session.add(check)
         db.session.commit()
         return check, 201
 
+@api.route('/disease-checks')
+class DiseaseCheckList(Resource):
+    # get: it lists all disease in the system
+    @api.marshal_list_with(disease_check_model)
+    def get(self):
+        return DiseaseCheck.query.all()
+    
+@api.route('/disease-checks/<int:id>')
+@api.response(404, 'check not found')
+class DiseaseCheckResource(Resource):
+     # get: retrieves the one prediction record
+    @api.marshal_with(disease_check_model)
+    def get(self,id):
+        return DiseaseCheck.query.get_or_404(id)
+    
+    # patch: update the prediction record 
+    @api.expect(disease_check_model, validate=False)
+    def patch(self, id):
+        check = DiseaseCheck.query.get_or_404(id)
+        data = api.payload
+
+        if 'disease_type_id' in data:
+            dtype = DiseaseType.query.get(data['disease_type_id'])
+            if dtype:
+                check.disease_type_id = data['disease_type_id']
+                db.session.commit()
+            else:
+                api.abort(400,"invalid disease type id")
+
+        return check
+    
+    # delete: delete the prediction record
+    def delete(self, id):
+        check = DiseaseCheck.query.get_or_404(id)
+        db.session.delete(check)
+        db.session.commit()
+        return '', 204
+    
+@api.route('/plants/<int:plant_id>/disease-checks')
+class PlantDiseaseHistory(Resource):
+    # get: it lists the disease history of a specific plant
+    @api.marshal_list_with(disease_check_model)
+    def get(self, plant_id):
+        plant = Plant.query.get_or_404(plant_id)
+        checks = DiseaseCheck.query.filter_by(plant_id=plant_id).order_by(DiseaseCheck.created_at.desc()).all()
+        
+        return checks  
+
+@api.route('/disease-checks')
+class DiseaseTypeList(Resource):
+    # get: it lists all the types of diseases recognized by the system
+    @api.marshal_list_with(disease_type_model)
+    def get(self):
+        return DiseaseType.query.all()
+    
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
