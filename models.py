@@ -26,6 +26,14 @@ class GrowthLog(db.Model):
     plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
+    soil_type = db.Column(db.String(50))
+    sunlight_hours = db.Column(db.Float)
+    water_frequency = db.Column(db.String(50))
+    fertilizer_type = db.Column(db.String(50))
+    temperature = db.Column(db.Float)
+    humidity = db.Column(db.Float)
+    predicted_milestone = db.Column(db.Integer)
+
 # plant diease folder 
 class DiseaseType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
