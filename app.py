@@ -69,23 +69,53 @@ plant_model = api.model('Plant', {
     'user_id': fields.Integer(required=True)
 })
 
-disease_result_model = api.model('DiseaseResult', {
+growth_log_model = api.model('GrowthLog', {
+    'id': fields.Integer(readonly=True),
     'plant_id': fields.Integer,
+    'date': fields.DateTime,
+    'predicted_milestone': fields.Integer,
+    'soil_type': fields.String,
+    'sunlight_hours': fields.Float,
+    'water_frequency': fields.String,
+    'fertilizer_type': fields.String,
+    'temperature': fields.Float,
+    'humidity': fields.Float
+})
+
+growth_input_model = api.model('GrowthInput',{
+    'plant_id': fields.Integer,
+    'soil_type': fields.String,
+    'sunlight_hours': fields.Float,
+    'water_frequency': fields.String,
+    'fertilizer_type': fields.String,
+    'temperature': fields.Float,
+    'humidity': fields.Float
+})
+
+disease_type_model = api.model('DiseaseType',{
+    'id': fields.Integer,
+    'name': fields.String
+})
+
+disease_check_model = api.model('DiseaseCheck',{
+    'id': fields.Integer(readonly=True),
+    'plant_id': fields.Integer,
+    'image_path': fields.String,
     'confidence': fields.Float,
-    'result': fields.String(attribute='disease_info.name', description='Disease Name')
+    'created_at': fields.DateTime,
+    'disease_type_id': fields.Integer,
+    'disease_name': fields.String(attribute='disease_info.name')
 })
 
-growth_input_model = api.model('GrowthInput', {
-    'soil_type': fields.String(required=True),
-    'sunlight_hours': fields.Float(required=True),
-    'water_frequency': fields.String(required=True),
-    'fertilizer_type': fields.String(required=True),
-    'temperature': fields.Float(required=True),
-    'humidity': fields.Float(required=True)
-})
+# plant filter parser
+plant_filter_parser = api.parser()
+plant_filter_parser.add_argument('species', type=str, required=False)
 
+# upload image parser
 upload_parser = api.parser()
+# files 
 upload_parser.add_argument('file', location='files', type=FileStorage, required=True)
+# form for other data sent along with the file
 upload_parser.add_argument('plant_id', location='form', type=int, required=True)
 
 def seed_disease_types():
@@ -214,9 +244,6 @@ class PlantResource(Resource):
         db.session.commit()
         return '', 204
     
-plant_filter_parser = api.parser()
-plant_filter_parser.add_argument('species', type=str, required=False)
-
 """
 Lists the plants of a specific user. Filters by type.
 """
@@ -239,30 +266,6 @@ class UserPlantList(Resource):
 """
 the developed model is a resource that tracks plant growth prediction
 """
-# swagger
-growth_log_model = api.model('GrowthLog', {
-    'id': fields.Integer(readonly=True),
-    'plant_id': fields.Integer,
-    'date': fields.DateTime,
-    'predicted_milestone': fields.Integer,
-    'soil_type': fields.String,
-    'sunlight_hours': fields.Float,
-    'water_frequency': fields.String,
-    'fertilizer_type': fields.String,
-    'temperature': fields.Float,
-    'humidity': fields.Float
-})
-
-growth_input_model = api.model('GrowthInput',{
-    'plant_id': fields.Integer,
-    'soil_type': fields.String,
-    'sunlight_hours': fields.Float,
-    'water_frequency': fields.String,
-    'fertilizer_type': fields.String,
-    'temperature': fields.Float,
-    'humidity': fields.Float
-})
-
 @api.route('/predict-growth')
 class GrowthPredictionResource(Resource):
     # post: the model is run and saved to the database
@@ -359,23 +362,6 @@ class PlantGrowthHistory(Resource):
 """
 the plant's disease is detected
 """
-
-#swagger
-disease_type_model = api.model('DiseaseType',{
-    'id': fields.Integer,
-    'name': fields.String
-})
-
-disease_check_model = api.model('DiseaseCheck',{
-    'id': fields.Integer(readonly=True),
-    'plant_id': fields.Integer,
-    'image_path': fields.String,
-    'confidence': fields.Float,
-    'created_at': fields.DateTime,
-    'disease_type_id': fields.Integer,
-    'disease_name': fields.String(attribute='disease_info.name')
-})
-
 @api.route('/check-disease')
 class DiseaseCheckCreate(Resource):
     @api.expect(upload_parser)
