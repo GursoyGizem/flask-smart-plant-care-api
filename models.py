@@ -8,7 +8,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     
-    plants = db.relationship('Plant', backref='owner', lazy=True)
+    plants = db.relationship('Plant', backref='owner', lazy=True, cascade="all, delete-orphan")
 
 # plant table
 class Plant(db.Model):

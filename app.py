@@ -131,14 +131,14 @@ class UserList(Resource):
 @api.route('/users/<int:id>')
 @api.response(404,'user not found')
 class UserResource(Resource):
-    # get: retrieves the one user list
-    @api.marshal_list(user_model)
+    # get: retrieves the one user
+    @api.marshal_with(user_model)
     def get(self, id):
         return User.query.get_or_404(id) #select*from users where id
     
     #patch: updates the existing resource
     @api.expect(user_model, validate=False)
-    @api.marshal_list(user_model)
+    @api.marshal_with(user_model)
     def patch(self, id): 
         user = User.query.get_or_404(id)
         data = api.payload
@@ -157,19 +157,83 @@ class UserResource(Resource):
         db.session.commit()
         return '', 204
 
+# 2. Resource: Plants
+"""
+the user's plant list (name and species) is recorded in the plants resource
+"""
 @api.route('/plants')
 class PlantList(Resource):
+    # get: list all plants
     @api.marshal_list_with(plant_model)
-    def get(self): return Plant.query.all()
+    def get(self): 
+        return Plant.query.all() # select*from plant
+    
+    # post: add new plant
     @api.expect(plant_model)
     @api.marshal_with(plant_model)
     def post(self):
         data = api.payload
-        if not User.query.get(data['user_id']): return {'message': 'User not found'}, 404
-        plant = Plant(name=data['name'], species=data.get('species'), user_id=data['user_id'])
+        if not User.query.get(data['user_id']): 
+            return {'message': 'User not found'}, 404
+        
+        plant = Plant(name=data['name'], 
+                      species=data.get('species'), 
+                      user_id=data['user_id'])
+        
         db.session.add(plant)
         db.session.commit()
         return plant, 201
+    
+@api.route('/plants/<int:id>')
+@api.response(404,'plant not found')
+class PlantResource(Resource):
+    # get: retrieves the one plant
+    @api.marshal_with(plant_model)
+    def get(self, id):
+        return Plant.query.get_or_404(id)
+    
+    # patch: update plant information
+    @api.expect(plant_model, validate=False)
+    @api.marshal_with(plant_model)
+    def patch(self, id):
+        plant = Plant.query.get_or_404(id)
+        data = api.payload
+
+        if 'name' in data:
+            plant.name = data['name']
+        if 'species' in data:
+            plant.species = data['species']
+
+        db.session.commit()
+        return plant
+    
+    # delete: delete the plant
+    def delete(self, id):
+        plant = Plant.query.get_or_404(id)
+        db.session.delete(plant)
+        db.session.commit()
+        return '', 204
+    
+plant_filter_parser = api.parser()
+plant_filter_parser.add_argument('species', type=str, required=False)
+
+"""
+Lists the plants of a specific user. Filters by type.
+"""
+@api.route('/users/<int:user_id>/plants')
+@api.response(404,'user not found')
+class UserPlantList(Resource):
+    @api.expect(plant_filter_parser)
+    @api.marshal_list_with(plant_model)
+    def get(self, user_id):
+        user = User.query.get_or_404(user_id)
+        args = plant_filter_parser.parse_args()
+        species_filter = args.get('species')
+        query = Plant.query.filter_by(user_id=user_id)
+        if species_filter:
+            query = query.filter(Plant.species.ilike(f"%{species_filter}%"))
+
+        return query.all()
 
 @api.route('/check-disease')
 class DiseaseCheckResource(Resource):
