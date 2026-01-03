@@ -105,24 +105,57 @@ def seed_disease_types():
             print(f"Warning: '{csv_path}' not found. Database is empty!")
 
 # endpoints
+# 1. Resource: Users
 @api.route('/users')
 class UserList(Resource):
-    @api.marshal_list_with(user_model)
-    def get(self): return User.query.all()
-
+    # get: retrieves the entire user list
+    @api.marshal_list_with(user_model) # all user json list
+    def get(self): 
+        return User.query.all() # select*from users
+    
+    # post: creates new resource
     @api.expect(user_model)
-    @api.marshal_with(user_model)
+    @api.marshal_with(user_model) # json 
     def post(self):
         data = api.payload
         user = User(username=data['username'], email=data['email'], password=data.get('password',''))
         
         try:
-            db.session.add(user)
-            db.session.commit()
+            db.session.add(user) # wait
+            db.session.commit() # record
             return user, 201
         except IntegrityError:
-            db.session.rollback()
+            db.session.rollback() # cancel
             api.abort(400, "This username or email address is registered.")
+
+@api.route('/users/<int:id>')
+@api.response(404,'user not found')
+class UserResource(Resource):
+    # get: retrieves the one user list
+    @api.marshal_list(user_model)
+    def get(self, id):
+        return User.query.get_or_404(id) #select*from users where id
+    
+    #patch: updates the existing resource
+    @api.expect(user_model, validate=False)
+    @api.marshal_list(user_model)
+    def patch(self, id): 
+        user = User.query.get_or_404(id)
+        data = api.payload
+
+        if 'username' in data: user.username = data['username']
+        if 'email' in data: user.email = data['email']
+        if 'password' in data: user.password = data['password']
+
+        db.session.commit()
+        return user
+    
+    #delete: deletes user based on id
+    def delete(self, id):
+        user = User.query.get_or_404(id)
+        db.session.delete(user)
+        db.session.commit()
+        return '', 204
 
 @api.route('/plants')
 class PlantList(Resource):
