@@ -55,13 +55,20 @@ api = Api(app, version='1.0',
           doc='/docs')
 
 # swagger model
-user_model = api.model('User', {
-    'id': fields.Integer(readonly=True),
+# 1. user
+user_input_model = api.model('UserInput',{
     'username': fields.String(required=True),
     'email': fields.String(required=True),
-    'password': fields.String()
+    'password': fields.String(required=True)
 })
 
+user_output_model = api.model('UserOutput', {
+    'id': fields.Integer,
+    'username': fields.String,
+    'email': fields.String
+})
+
+# 2. plant
 plant_model = api.model('Plant', {
     'id': fields.Integer(readonly=True),
     'name': fields.String(required=True),
@@ -69,6 +76,7 @@ plant_model = api.model('Plant', {
     'user_id': fields.Integer(required=True)
 })
 
+# 3. growth log
 growth_log_model = api.model('GrowthLog', {
     'id': fields.Integer(readonly=True),
     'plant_id': fields.Integer,
@@ -92,6 +100,7 @@ growth_input_model = api.model('GrowthInput',{
     'humidity': fields.Float
 })
 
+# 4. plant disease check
 disease_type_model = api.model('DiseaseType',{
     'id': fields.Integer,
     'name': fields.String
@@ -107,6 +116,25 @@ disease_check_model = api.model('DiseaseCheck',{
     'disease_name': fields.String(attribute='disease_info.name')
 })
 
+# 5. plant care
+care_input_model = api.model('PlantCareInput', {
+    'plant_id': fields.Integer(required=True),
+    'medicine': fields.String(required=True),
+    'notes': fields.String,
+    'growth_log_id': fields.Integer,
+    'disease_check_id': fields.Integer
+})
+
+care_output_model = api.model('PlantCare', {
+    'id': fields.Integer,
+    'plant_id': fields.Integer,
+    'medicine_name': fields.String,
+    'applied_at': fields.DateTime,
+    'notes': fields.String,
+    'related_growth_log': fields.Integer(attribute='growth_log_id'),
+    'related_disease_check': fields.Integer(attribute='disease_check_id')
+})
+
 # plant filter parser
 plant_filter_parser = api.parser()
 plant_filter_parser.add_argument('species', type=str, required=False)
@@ -120,7 +148,7 @@ upload_parser.add_argument('plant_id', location='form', type=int, required=True)
 
 def seed_disease_types():
     if DiseaseType.query.first() is None:
-        csv_path = 'disease_type.csv'
+        csv_path = 'disease_types.csv'
         if os.path.exists(csv_path):
             print(f"Seeding database from: {csv_path}")
             try:
@@ -132,20 +160,20 @@ def seed_disease_types():
             except Exception as e:
                 print(f"CSV Error: {e}")
         else:
-            print(f"Warning: '{csv_path}' not found. Database is empty!")
+            print(f"Warning: '{csv_path}' not found.")
 
 # endpoints
 # 1. Resource: Users
 @api.route('/users')
 class UserList(Resource):
     # get: retrieves the entire user list
-    @api.marshal_list_with(user_model) # all user json list
+    @api.marshal_list_with(user_output_model) # all user json list
     def get(self): 
         return User.query.all() # select*from users
     
     # post: creates new resource
-    @api.expect(user_model)
-    @api.marshal_with(user_model) # json 
+    @api.expect(user_input_model)
+    @api.marshal_with(user_output_model) # json 
     def post(self):
         data = api.payload
         user = User(username=data['username'], email=data['email'], password=data.get('password',''))
@@ -162,13 +190,13 @@ class UserList(Resource):
 @api.response(404,'user not found')
 class UserResource(Resource):
     # get: retrieves the one user
-    @api.marshal_with(user_model)
+    @api.marshal_with(user_output_model)
     def get(self, id):
         return User.query.get_or_404(id) #select*from users where id
     
     #patch: updates the existing resource
-    @api.expect(user_model, validate=False)
-    @api.marshal_with(user_model)
+    @api.expect(user_input_model, validate=False)
+    @api.marshal_with(user_output_model)
     def patch(self, id): 
         user = User.query.get_or_404(id)
         data = api.payload
@@ -317,7 +345,7 @@ class GrowthPredictionResource(Resource):
     
 @api.route('/growth-logs')
 class GrowthLogList(Resource):
-    # get:
+    # get: retrieves the all prediction record
     @api.marshal_list_with(growth_log_model)
     def get(self):
         return GrowthLog.query.all()
@@ -458,12 +486,82 @@ class PlantDiseaseHistory(Resource):
         
         return checks  
 
-@api.route('/disease-checks')
+@api.route('/disease-type')
 class DiseaseTypeList(Resource):
     # get: it lists all the types of diseases recognized by the system
     @api.marshal_list_with(disease_type_model)
     def get(self):
         return DiseaseType.query.all()
+
+# 5. Resource: Plant Care
+"""
+it is a source that tracks plant growth or treatment methods used against disease
+"""
+@api.route('/plant-cares')
+class PlantCareList(Resource):
+    # get: list all care history
+    @api.marshal_list_with(care_output_model)
+    def get(self):
+        return PlantCare.query.all()
+    
+    # post: add plant care
+    @api.expect(care_input_model)
+    @api.marshal_with(care_output_model)
+    def post(self):
+        data = api.payload
+
+        plant = Plant.query.get(data['plant_id'])
+        if not plant:
+            api.abort(404, "plant not found")
+
+        care = PlantCare(
+            plant_id=data['plant_id'],
+            medicine_name=data['medicine_name'],
+            notes=data.get('notes'),
+            growth_log_id=data.get('growth_log_id'),     
+            disease_check_id=data.get('disease_check_id')
+        )
+
+        db.session.add(care)
+        db.session.commit()
+        return care, 201
+    
+@api.route('/plant-cares/<int:id>')
+@api.response(404, 'care record not found')
+class PlantCareResource(Resource):
+    # get: retrieves the one care record
+    @api.marshal_with(care_input_model)
+    def get(self,id):
+        return PlantCare.query.get_or_404(id)
+    
+    # patch: update the care record 
+    @api.expect(care_input_model, validate=False)
+    @api.marshal_with(care_output_model)
+    def patch(self, id):
+        care = PlantCare.query.get_or_404(id)
+        data = api.payload
+
+        if 'medicine_name' in data: care.medicine_name = data['medicine_name']
+        if 'notes' in data: care.notes = data['notes']
+
+        db.session.commit()
+        return care
+    
+    # delete: delete the prediction record
+    def delete(self, id):
+        care = PlantCare.query.get_or_404(id)
+        db.session.delete(care)
+        db.session.commit()
+        return '', 204
+
+@api.route('/plants/<int:id>/cares')
+class PlantCareHistory(Resource):
+    @api.marshal_list_with(care_output_model)
+    def get(self, plant_id):
+        plant = Plant.query.get_or_404(plant_id)
+        cares= PlantCare.query.filter_by(plant_id=plant_id).order_by(PlantCare.applied_at.desc()).all()
+
+        return cares
     
 if __name__ == '__main__':
     with app.app_context():

@@ -38,20 +38,30 @@ class GrowthLog(db.Model):
 class DiseaseType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
+
     checks = db.relationship('DiseaseCheck', backref='disease_info', lazy=True)
 
 # plant disease check table
 class DiseaseCheck(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    image_path = db.Column(db.String(255)) 
-    
+    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
     disease_type_id = db.Column(db.Integer, db.ForeignKey('disease_type.id'), nullable=False)
+    
+    image_path = db.Column(db.String(255)) 
     confidence = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
 
-# plant care tips table
+# plant care table
 class PlantCare(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    plant_species = db.Column(db.String(100)) 
-    tip_text = db.Column(db.Text, nullable=False)
+    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
+
+    medicine_name = db.Column(db.String(255))
+    applied_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+
+    growth_log_id = db.Column(db.Integer, db.ForeignKey('growth_log.id'), nullable=True)
+    disease_check_id = db.Column(db.Integer, db.ForeignKey('disease_check.id'), nullable=True)
+
+    growth_info = db.relationship('GrowthLog', backref='treatments')
+    disease_info = db.relationship('DiseaseCheck', backref='treatments')
