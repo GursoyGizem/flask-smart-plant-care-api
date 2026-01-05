@@ -91,13 +91,13 @@ growth_log_model = api.model('GrowthLog', {
 })
 
 growth_input_model = api.model('GrowthInput',{
-    'plant_id': fields.Integer,
-    'soil_type': fields.String,
-    'sunlight_hours': fields.Float,
-    'water_frequency': fields.String,
-    'fertilizer_type': fields.String,
-    'temperature': fields.Float,
-    'humidity': fields.Float
+    'plant_id': fields.Integer(required=True),
+    'soil_type': fields.String(required=True),
+    'sunlight_hours': fields.Float(required=True),
+    'water_frequency': fields.String(required=True),
+    'fertilizer_type': fields.String(required=True),
+    'temperature': fields.Float(required=True),
+    'humidity': fields.Float(required=True)
 })
 
 # 4. plant disease check
@@ -392,6 +392,14 @@ the plant's disease is detected
 """
 @api.route('/check-disease')
 class DiseaseCheckCreate(Resource):
+    def get_or_create_unknown(self):
+        unknown = DiseaseType.query.filter_by(name="Unknown Disease").first()
+        if not unknown:
+            unknown = DiseaseType(name="Unknown Disease")
+            db.session.add(unknown)
+            db.session.commit()
+        return unknown
+    
     @api.expect(upload_parser)
     @api.marshal_with(disease_check_model)
     # post: performs an AI prediction, and saves the result to a database
@@ -401,13 +409,27 @@ class DiseaseCheckCreate(Resource):
         args = upload_parser.parse_args()
         file = args['file']
         plant_id = args['plant_id']
+
+        plant = Plant.query.get(plant_id)
+        if not plant: api.abort(404, "plant not found")
+
+        all_diseases = DiseaseType.query.all()
+        supported_species = set([d.name.split('___')[0] for d in all_diseases])
+        if plant.species and plant.species.capitalize() not in supported_species:
+            return {
+                'message': f"Disease detection for '{plant.species}' is not supported yet. Supported types: {list(supported_species)}"
+            }, 400
         
         filename = secure_filename(file.filename)
         path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(path)
         
         # Prediction
-        img = Image.open(path).resize((224, 224))
+        try:
+            img = Image.open(path).resize((224, 224))
+        except Exception:
+            return {'message': 'Invalid image file.'}, 400
+
         img_array = np.array(img) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
@@ -415,18 +437,11 @@ class DiseaseCheckCreate(Resource):
         predicted_idx = np.argmax(predictions) 
         confidence = float(np.max(predictions))
         
-        disease_type = DiseaseType.query.get(int(predicted_idx) + 1)
-        
-        if not disease_type:
-            first_type = DiseaseType.query.first()
-            if first_type:
-                disease_type = first_type
-            else:
-                unknown = DiseaseType(name="Unknown Disease")
-                db.session.add(unknown)
-                db.session.commit()
-                disease_type = unknown
-            
+        if confidence < 0.50:
+            disease_type = self.get_or_create_unknown()
+        else:
+            disease_type = DiseaseType.query.get(int(predicted_idx)+1)
+
         check = DiseaseCheck(
             plant_id=plant_id, 
             image_path=path, 
@@ -554,7 +569,7 @@ class PlantCareResource(Resource):
         db.session.commit()
         return '', 204
 
-@api.route('/plants/<int:id>/cares')
+@api.route('/plants/<int:plant_id>/cares')
 class PlantCareHistory(Resource):
     @api.marshal_list_with(care_output_model)
     def get(self, plant_id):
