@@ -14,3 +14,5 @@ tabular_data/
 models/
 
 .ipynb_checkpoints
+.coverage
+htmlcov/

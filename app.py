@@ -1,4 +1,6 @@
 import os
+import re
+import warnings
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -8,6 +10,7 @@ from flask import Flask
 from flask_restx import Api, Resource, fields
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+from datetime import datetime
 from PIL import Image
 from extensions import db
 from sqlalchemy.exc import IntegrityError
@@ -119,7 +122,7 @@ disease_check_model = api.model('DiseaseCheck',{
 # 5. plant care
 care_input_model = api.model('PlantCareInput', {
     'plant_id': fields.Integer(required=True),
-    'medicine': fields.String(required=True),
+    'medicine_name': fields.String(required=True),
     'notes': fields.String,
     'growth_log_id': fields.Integer,
     'disease_check_id': fields.Integer
@@ -145,6 +148,84 @@ upload_parser = api.parser()
 upload_parser.add_argument('file', location='files', type=FileStorage, required=True)
 # form for other data sent along with the file
 upload_parser.add_argument('plant_id', location='form', type=int, required=True)
+
+def validate_email_format(email):
+    if not email:
+        return False
+    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return bool(re.match(pattern, email))
+
+def validate_password_strength(password):
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password): 
+        return False
+    if not re.search(r"[a-z]", password): 
+        return False
+    if not re.search(r"\d", password):    
+        return False
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password): 
+        return False
+    return True
+
+def format_disease_name(raw_name):
+    if "___" in raw_name:
+        parts = raw_name.split("___")
+        species = parts[0]
+        disease = parts[1].replace("_", " ")
+        return f"{species} - {disease}"
+    return raw_name
+
+def prepare_prediction_dataframe(input_data, model_columns):
+    input_df = pd.DataFrame([input_data])
+    input_df = pd.get_dummies(input_df, columns=['Soil_Type', 'Water_Frequency', 'Fertilizer_Type']) # Dummy eklendi
+    input_df = input_df.reindex(columns=model_columns, fill_value=0)
+    return input_df
+
+def predict_disease(confidence):
+    if confidence > 0.80:
+        return "High Confidence"
+    elif 0.50 <= confidence <= 0.80:
+        return "Medium Confidence"
+    else:
+        return "Unknown"
+
+def validate_image_format(filename):
+    if not filename or "." not in filename:
+        return False
+    
+    allowed_extensions = {'.jpg', '.jpeg', '.png'}
+    ext = os.path.splitext(filename)[1].lower()
+    
+    return ext in allowed_extensions
+
+def parse_csv_date(date_str):
+    if not date_str:
+        return None
+        
+    formats = ["%Y-%m-%d", "%d/%m/%Y"] 
+    
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            if dt > datetime.now():
+                warnings.warn(f"Future date detected: {date_str}", UserWarning)
+            return dt
+        except ValueError:
+            continue
+            
+    return None 
+
+def normalize_name(name):
+    if not name:
+        return ""
+    
+    clean_name = re.sub(r'[^\w\s]', '', name)
+
+    return clean_name.strip().title()
+
+def validate_plant(plant_id):
+    return Plant.query.get(plant_id) is not None
 
 def seed_disease_types():
     if DiseaseType.query.first() is None:
@@ -176,6 +257,13 @@ class UserList(Resource):
     @api.marshal_with(user_output_model) # json 
     def post(self):
         data = api.payload
+
+        if not validate_email_format(data['email']):
+            api.abort(400, "Invalid email format.")
+            
+        if not validate_password_strength(data.get('password', '')):
+            api.abort(400, "Password is too weak. It must be at least 8 chars, contain uppercase, lowercase, number and special char.")
+
         user = User(username=data['username'], email=data['email'], password=data.get('password',''))
         
         try:
@@ -232,7 +320,7 @@ class PlantList(Resource):
     def post(self):
         data = api.payload
         if not User.query.get(data['user_id']): 
-            return {'message': 'User not found'}, 404
+            api.abort(404, {'message': 'User not found'})
         
         plant = Plant(name=data['name'], 
                       species=data.get('species'), 
@@ -470,6 +558,7 @@ class DiseaseCheckResource(Resource):
     
     # patch: update the prediction record 
     @api.expect(disease_check_model, validate=False)
+    @api.marshal_with(disease_check_model)
     def patch(self, id):
         check = DiseaseCheck.query.get_or_404(id)
         data = api.payload
