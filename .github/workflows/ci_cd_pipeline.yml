@@ -26,7 +26,8 @@ jobs:
 
     - name: Create report
       run: |
-        pytest --cov=. --cov-report=xml
+        pytest --cov=. --cov-report=xml:coverage.xml
+        ls -la
 
     - name: Install Codecov
       uses: codecov/codecov-action@v3
