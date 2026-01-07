@@ -498,6 +498,9 @@ class DiseaseCheckCreate(Resource):
         file = args['file']
         plant_id = args['plant_id']
 
+        if not validate_image_format(file.filename):
+            api.abort(400, "Invalid file format.")
+
         plant = Plant.query.get(plant_id)
         if not plant: api.abort(404, "plant not found")
 

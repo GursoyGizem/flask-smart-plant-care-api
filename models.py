@@ -15,15 +15,16 @@ class Plant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     species = db.Column(db.String(120))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
 
-    growth_logs = db.relationship('GrowthLog', backref='plant', lazy=True)
-    disease_checks = db.relationship('DiseaseCheck', backref='plant', lazy=True)
+    growth_logs = db.relationship('GrowthLog', backref='plant', lazy=True, cascade="all, delete-orphan")
+    disease_checks = db.relationship('DiseaseCheck', backref='plant', lazy=True, cascade="all, delete-orphan")
+    cares = db.relationship('PlantCare', backref='plant', lazy=True, cascade="all, delete-orphan")
 
 # growth log table
 class GrowthLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
+    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id', ondelete="CASCADE"), nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
     soil_type = db.Column(db.String(50), nullable=False)
@@ -44,7 +45,7 @@ class DiseaseType(db.Model):
 # plant disease check table
 class DiseaseCheck(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
+    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id', ondelete="CASCADE"), nullable=False)
     disease_type_id = db.Column(db.Integer, db.ForeignKey('disease_type.id'), nullable=False)
     
     image_path = db.Column(db.String(255)) 
@@ -54,7 +55,7 @@ class DiseaseCheck(db.Model):
 # plant care table
 class PlantCare(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id'), nullable=False)
+    plant_id = db.Column(db.Integer, db.ForeignKey('plant.id', ondelete="CASCADE"), nullable=False)
 
     medicine_name = db.Column(db.String(255))
     applied_at = db.Column(db.DateTime, default=datetime.utcnow)
