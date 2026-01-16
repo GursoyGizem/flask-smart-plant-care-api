@@ -1,12 +1,35 @@
-﻿[![codecov](https://codecov.io/github/GursoyGizem/flask-smart-plant-care-api/graph/badge.svg?token=5M2FKG35FA)](https://codecov.io/github/GursoyGizem/flask-smart-plant-care-api) 
+<div align="center">
+
 [![CI/CD ve Test Otomasyonu](https://github.com/GursoyGizem/flask-smart-plant-care-api/actions/workflows/ci_cd_pipeline.yml/badge.svg)](https://github.com/GursoyGizem/flask-smart-plant-care-api/actions/workflows/ci_cd_pipeline.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![codecov](https://codecov.io/gh/GursoyGizem/flask-smart-plant-care-api/graph/badge.svg)](https://codecov.io/gh/GursoyGizem/flask-smart-plant-care-api)
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg?style=flat&logo=python&logoColor=white)
+
+<br>
+
+![Flask](https://img.shields.io/badge/flask-%23000.svg?style=for-the-badge&logo=flask&logoColor=white)
+![Flask-RESTX](https://img.shields.io/badge/Flask--RESTX-%23000.svg?style=for-the-badge&logo=flask&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-%23D71F00.svg?style=for-the-badge&logo=sqlalchemy&logoColor=white)
+![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
+![Pytest](https://img.shields.io/badge/pytest-%230A9EDC.svg?style=for-the-badge&logo=pytest&logoColor=white)
+
+<br>
+
+![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
+![Keras](https://img.shields.io/badge/Keras-%23D00000.svg?style=for-the-badge&logo=Keras&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)
+
+<br>
+
+![NumPy](https://img.shields.io/badge/numpy-%23013243.svg?style=for-the-badge&logo=numpy&logoColor=white)
+![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
+![Pillow](https://img.shields.io/badge/Pillow-%233776AB.svg?style=for-the-badge&logo=python&logoColor=white)
+
+</div>
+
+---
+ 
 # flask-smart-plant-care-api
-Akıllı bitki bakım ve hastalık tespit sistemi. Bu proje, makine öğrenimi modelleri kullanarak bitki hastalıklarını tespit eder ve bitki büyüme tahminleri yapar.
-
-## Proje Açıklaması
-
-Flask Smart Plant Care API, kullanıcıların bitkilerini takip etmelerini, hastalık taraması yapmalarını ve büyüme tahminleri almalarını sağlayan bir RESTful API'dir.
+FSmart Plant Care API, ML tabanlı yöntemler kullanarak bitkilerde görülen hastalıkların otomatik olarak tespit edilmesini ve bitki büyüme süreçlerinin tahmin edilmesini amaçlamaktadır. API, bitki takibi, hastalık analizi ve büyüme tahmini işlevlerini sağlayan RESTful API'dir.
 
 ### Temel Özellikler
 
@@ -15,24 +38,7 @@ Flask Smart Plant Care API, kullanıcıların bitkilerini takip etmelerini, hast
 - **Hastalık Tespiti**: Bitki görüntülerinden AI tabanlı hastalık tespiti
 - **Büyüme Tahmini**: Çevresel faktörlere göre bitki büyüme tahmini
 - **Tedavi Takibi**: Uygulanan tedavilerin kayıt altına alınması
-
-##  Kullanılan Teknolojiler
-
-### Backend
-- **Python 3.10+**
-- **Flask** - Web framework
-- **PyTest** - Test Framework
-- **SQLAlchemy** - ORM (Object-Relational Mapping)
-- **SQLite** - Veritabanı
-- **Flask-RESTX** - RESTful API ve Swagger dokümantasyonu
-
-### Machine Learning
-- **TensorFlow/Keras** - Derin öğrenme modeli (hastalık tespiti)
-- **Scikit-learn** - Makine öğrenimi modeli (büyüme tahmini)
-- **NumPy** - Sayısal işlemler
-- **Pandas** - Veri manipülasyonu
-- **Pillow (PIL)** - Görüntü işleme
-
+  
 ##  Kurulum Talimatları
 
 ### Gereksinimler
@@ -46,20 +52,17 @@ Flask Smart Plant Care API, kullanıcıların bitkilerini takip etmelerini, hast
 
 #### Adım 2: Virtual Environment Oluşturun
 `python -m venv venv`
+
 `venv\Scripts\activate`
 
-### Adım 3: Bağımlılıkları Yükleyin
+#### Adım 3: Bağımlılıkları Yükleyin
 `pip install -r requirements.txt`
 
 ## Uygulamayı Çalıştırma
 
-### Geliştirme Sunucusunu Başlatın
-`python run.py`
+**Geliştirme Sunucusunu Başlatın:** `python run.py`. Uygulama varsayılan olarak `http://localhost:5000` adresinde çalışacaktır.
 
-Uygulama varsayılan olarak `http://localhost:5000` adresinde çalışacaktır.
-
-### API Dokümantasyonuna Erişim
-Swagger UI dokümantasyonu şu adreste mevcuttur: `http://localhost:5000/docs`
+**API Dokümantasyonuna Erişim**: Swagger UI dokümantasyonu şu adreste mevcuttur: `http://localhost:5000/docs`
 
 ## API Endpoint'lerinin Listesi
 ###  Kullanıcı İşlemleri
@@ -209,18 +212,18 @@ Swagger UI dokümantasyonu şu adreste mevcuttur: `http://localhost:5000/docs`
 
 ## Test Çalıştırma Komutları
 
-Tüm testleri çalıştırmak için : `pytest -m pytest`
+**Tüm testleri çalıştırmak için:** `pytest -m pytest`
 
-Belirli bir testi çalıştırmak için:`python -m pytest tests/test_system.py::test_system_disease_progression`
+**Belirli bir testi çalıştırmak için:** `python -m pytest tests/test_system.py::test_system_disease_progression`
 
-Belirli dosyadaki tüm testleri çalıştırmak için:`python -m pytest tests/test_system.py`
+**Belirli dosyadaki tüm testleri çalıştırmak için:** `python -m pytest tests/test_system.py`
 
-Kod kapsama raporu oluşturmak için:`python -m pytest --cov=app --cov-report=html`
+**Kod kapsama raporu oluşturmak için:** `python -m pytest --cov=app --cov-report=html`
 
 HTML raporu `htmlcov/index.html` dosyasında görüntülenebilir.
 
 ### Test Kategorileri
 - **Unit Testler (15 adet)**: Fonksiyonlar ve modeller
 - **Integration Testler (14 adet)**: API endpoint'leri ve veritabanı işlemleri
-
 - **System Testler (7 adet)**: End-to-end senaryolar
+
