@@ -147,7 +147,7 @@ def test_system_user_security(client):
     plant_names = [p["name"] for p in plant_b]
     assert "users a plant" not in plant_names
 
-# 5. System Test: kullanici hesabini sildiginde, ona ait bitkiler, bakim kayitlari ve analizleri de silinme kontrolü
+# 5. System Test: kullanici hesabini sildiginde, ona ait bitkiler, bakim kayitlari ve analizleri de silinme kontrolu
 """
 Adimlar:
 1. Kullanici olusturulur, bitki ve tedavi eklenir
@@ -169,3 +169,124 @@ def test_system_cascade_delete(client):
 
     # Plant ID'si ile sorgu yapilir ve hata alinmasi beklenir
     assert client.get(f'/plant-cares/{care_id}').status_code == 404
+
+# 6. System Test: Kullanici birden fazla bitki icin hastalik taramasi yapar, hastalikli bilgiye tedavi uygular ve saglikli bitkinin buyume takibi yapilir
+"""
+1. Kullanici sisteme kayit olur
+2. 2 tane bitki kaydi olusturur
+3. Birinci bitkinin hastalik taramasi yapilir ve yuksek confidence ile hastalik tespit edilir
+4. İkinci bitkinin hastalik taramasi yapilir ve dusuk confidence ile saglikli sonucu alinir
+5. Birinci bitkiye tedavi uygulanir
+6. İkinci bitkinin buyume verisi girilir ve tahmin yapilir
+6. Bitki kayitlarinin gecmisleri kontrol edilir
+"""
+def test_multi_plant_management(client):
+    client.post('/users', json={'username': user_name, 'email': user_email, 'password': user_password})
+    plant1 = client.post("/plants", json={"name": "red apple", "species":"apple", "user_id": 1}).json["id"]
+    plant2 = client.post("/plants", json={"name": "green apple", "species":"apple", "user_id": 1}).json["id"]
+
+    with patch('app.extensions.disease_model') as mock_disease_model:
+        mock_disease_model.predict.return_value = [[0.95]]
+        fake_file1 = (io.BytesIO(b"fake_r_apple_img"), "r_apple.jpg")
+
+        with patch("werkzeug.datastructures.FileStorage.save"), patch("PIL.Image.open"):
+            unhealthy_plant = {"plant_id": plant1, "file": fake_file1}
+            check1 = client.post("/check-disease", data=unhealthy_plant)
+
+            assert check1.status_code == 201
+            assert check1.json["confidence"] > 0.90
+
+        mock_disease_model.predict.return_value = [[0.2]]
+        fake_file2 = (io.BytesIO(b"fake_g_apple_img"), "g_apple.jpg")
+
+        with patch("werkzeug.datastructures.FileStorage.save"), patch("PIL.Image.open"):
+            healthy_plant = {"plant_id": plant2, "file": fake_file2}
+            check2 = client.post("/check-disease", data=healthy_plant)
+
+            assert check2.status_code == 201
+
+    care = client.post("/plant-cares", json={
+        "plant_id": plant1,
+        "medicine_name": "yanik spreyi",
+        "notes": "agac dibine uygulandi",
+        "disease_check_id": check1.json.get('id')
+    })
+
+    assert care.status_code == 201
+    
+    with patch("app.extensions.growth_model") as mock_model:
+        mock_model.predict.return_value = [3] 
+
+        input_data = {
+            "plant_id": plant2,
+            "soil_type": "Loam",
+            "sunlight_hours": 6.5,
+            "water_frequency": "Daily",
+            "fertilizer_type": "Nitrogen",
+            "temperature": 24.0,
+            "humidity": 55.0
+            }
+        
+        fake_columns = ["Soil_Type_Clay", "Water_Frequency_Daily", "Temperature", "Humidity", "Sunlight_Hours", "Fertilizer_Type_None"]
+        with patch("app.extensions.model_columns", fake_columns):
+            res = client.post('/predict-growth', json=input_data)
+            assert res.status_code == 200
+
+    cares = client.get('/plant-cares')
+    assert len(cares.json) >= 1
+
+# 7. System Test: Kullanici ayni bitki icin hastalik taramasi yapar ve tedavi takibi gerceklesir
+"""
+1. Kullanici sisteme kayit olur ve bitki ekler
+2. Bitkiye hastalik taramasi yapilir birinci sonuc high confidence cikar
+3. Tedavi uygulanir
+3. Bitkiye 1 hafta sonra hastalik taramasi yapilir  ikinci sonuc medium confidence cikar
+4. Tedavi uygulanir
+5. Bitkiye 2 hafta sonra hastalik taramasi yapilir ucuncu sonuc low confidence cikar
+6. Bitkinin hastalik ve tedavi gecmisi listelenir
+"""
+def test_system_disease_progression(client):
+    client.post('/users', json={'username': user_name, 'email': user_email, 'password': user_password})
+    plant_id = client.post("/plants", json={"name": "red apple", "species": "apple", "user_id": 1}).json["id"]
+
+    with patch("app.extensions.disease_model") as mock_disease_model:
+        mock_disease_model.predict.return_value = [[0.95]]
+        fake_file1 = (io.BytesIO(b"fake_img"), "apple.jpg")
+
+        with patch("werkzeug.datastructures.FileStorage.save"), patch("PIL.Image.open"):
+            check1 = client.post("/check-disease", data={"plant_id": plant_id, "file": fake_file1})
+
+            assert check1.status_code == 201
+            assert check1.json["confidence"] > 0.90
+            
+            client.post("/plant-cares", json={
+                "plant_id": plant_id, 
+                "medicine_name": "2 doz bakteri", 
+                "disease_check_id": check1.json['id']
+            })
+
+        mock_disease_model.predict.return_value = [[0.62]]
+        fake_file2 = (io.BytesIO(b"fake_img"), "apple.jpg")
+
+        with patch("werkzeug.datastructures.FileStorage.save"), patch("PIL.Image.open"):
+            check2 = client.post("/check-disease", data={"plant_id": plant_id, "file": fake_file2})
+
+            assert check2.status_code == 201
+            assert 0.50 < check2.json["confidence"] < 0.80
+
+            client.post("/plant-cares", json={
+                "plant_id": plant_id, 
+                "medicine_name": "1 doz bakteri", 
+                "disease_check_id": check2.json['id']
+            })
+
+        mock_disease_model.predict.return_value = [[0.32]]
+        fake_file3 = (io.BytesIO(b"fake_img"), "appleclea.jpg")
+
+        with patch("werkzeug.datastructures.FileStorage.save"), patch("PIL.Image.open"):
+            check3 = client.post("/check-disease", data={"plant_id": plant_id, "file": fake_file3})
+            assert check3.status_code == 201
+            assert check3.json["confidence"] < 0.50
+
+    history = client.get(f"/plants/{plant_id}/cares").json
+    assert len(history) == 2 
